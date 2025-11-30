@@ -1,181 +1,49 @@
-const db = require('../database/db');
+const orderService = require('../services/order.service');
 
-
-
-    exports.createOrder = async (req, res)  => {
-        try {
-            const { numeroPedido, valorTotal, dataCriacao, items } = req.body;
-
-            if (!numeroPedido || !valorTotal || !dataCriacao || !items || !items) {
-                return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
-            }
-
-            const orderMapped = {
-                orderId: numeroPedido,
-                value: valorTotal,
-                creationDates: new Date(dataCriacao).toISOString().slice(0, 19).replace('T', ' '),
-            };
-
-            await db.query (
-                'INSERT INTO orders (orderId, value, creationDate) VALUES (?, ?, ?)',
-                [orderMapped.orderId, orderMapped.value, orderMapped.creationDates]
-            );
-
-            for (const item of items) {
-                const transformedItem = {
-                    productId: Number(item.idItem),
-                    quantity: item.quantidadeItem,
-                    price: item.valorItem
-                };
-
-                await db.query(
-                    'INSERT INTO items (orderId, productId, quantity, price) VALUES (?, ?, ?, ?)',
-                    [orderMapped.orderId, transformedItem.productId, transformedItem.quantity, transformedItem.price]
-                );
-
-            }
-
-            res.status(201).json({ message: 'Pedido criado com sucesso.', order: orderMapped });
-        } catch (error) {
-            console.error('Erro ao criar o pedido:', error);
-            res.status(500).json({ message: 'Erro ao criar o pedido.' });
-        }
-    };
-
-
-
-
-
-    exports.getAllOrders = async (req, res) => {
-        try {
-            const [orders] = await db.query('SELECT o.orderId, o.value, o.creationDate, i.productId, i.quantity, i.price FROM orders o LEFT JOIN items i ON o.orderId = i.orderId');
-
-            const ordersMap = {};
-
-            orders.forEach(r => {
-                if(!ordersMap[r.orderId]){
-                    ordersMap[r.orderId] = {
-                        orderId: r.orderId,
-                        value: r.value,
-                        creationDate: r.creationDate,
-                        items: []
-                    };
-                }
-
-                if (r.productId != null){
-                    ordersMap[r.orderId].items.push({
-                        productId: r.productId,
-                        quantity: r.quantity,
-                        price: r.price
-                    });
-                }
-            });
-
-            res.json(Object.values(ordersMap));
-
-        }catch (err){
-            console.error(err);
-            res.status(500).json({ error: "Erro ao listar os pedidos"});
-        }
-
-    };
-
-
-   exports.getOrderById = async (req, res) => {
+exports.createOrder = async (req, res) => {
     try {
-         const orderId = req.params.id;
+        const data = await orderService.createOrder(req.body);
+        res.status(201).json({ message: "Pedido criado com sucesso.", data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-         const [[ order ]] = await db.query("SELECT * FROM orders WHERE orderId = ?", [orderId]);
+exports.getAllOrders = async (req, res) => {
+    try {
+        const data = await orderService.getAllOrders();
+        res.status(200).json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-         if (!order) {
-             return res.status(404).json({ message: 'Pedido não encontrado.' });
-         }
+exports.getOrderById = async (req, res) => {
+    try {
+        const data = await orderService.getOrderById(req.params.id);
+        if (!data) return res.status(404).json({ message: "Pedido não encontrado." });
+        res.status(200).json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-         const [ items ] = await db.query("SELECT * FROM items WHERE orderId = ?", [orderId]);
+exports.updateOrder = async (req, res) => {
+    try {
+        const data = await orderService.updateOrder(req.params.orderId, req.body);
+        if (!data) return res.status(404).json({ message: "Pedido não encontrado." });
+        res.status(200).json({ message: "Pedido atualizado com sucesso.", data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-         res.status(200).json({ ...order, items });
-
-        } catch (error) {
-            console.error('Erro ao buscar o pedido:', error);
-            res.status(500).json({ message: 'Erro ao buscar o pedido.' });
-        }
-    };
-    
-
-
-
-
-    exports.updateOrder = async (req, res) => {
-        try{
-            const orderId = req.params.orderId;
-            const { valorTotal, dataCriacao, items } = req.body;
-
-
-            if(!Array.isArray(items) || items.length === 0) {
-                return res.status(400).json({ message: 'O pedido deve conter pelo menos um item.' });
-            }
-                        
-            const [ rows ] = await db.query('SELECT * FROM orders WHERE orderId = ?', [orderId]);
-
-            
-            if (rows.length === 0) {
-                return res.status(404).json({ message: 'Pedido não encontrado.' });
-            }
-
-            const updatedOrder = {
-                value: valorTotal,
-                creationDate: new Date(dataCriacao).toISOString().slice(0, 19).replace('T', ' '),
-            };
-
-            await db.query(
-                'UPDATE orders SET value = ?, creationDate = ? WHERE orderId = ?',
-                [updatedOrder.value, updatedOrder.creationDate, orderId]
-            );
-
-            await db.query('DELETE FROM items WHERE orderId = ?', [orderId]);
-
-            for (const item of items) {
-                const transformedItem = {
-                    orderId: orderId,
-                    productId: Number(item.idItem),
-                    quantity: item.quantidadeItem,
-                    price: item.valorItem
-                };
-
-                await db.query(
-                    'INSERT INTO items (orderId, productId, quantity, price) VALUES (?, ?, ?, ?)',
-                    [orderId, transformedItem.productId, transformedItem.quantity, transformedItem.price]
-                );
-            }
-            
-
-            return res.status(200).json({ message: 'Pedido atualizado com sucesso.', order: updatedOrder });
-        }
-        catch (error) {
-            console.error('Erro ao atualizar o pedido:', error);
-            res.status(500).json({ message: 'Erro ao atualizar o pedido.' });
-        }
-    };
-
-
-  exports.deleteOrder = async (req, res) => {
-        try {
-            const orderId = req.params.id;
-
-            const[[ order ]] = await db.query('SELECT * FROM orders WHERE orderId = ?', [orderId]);
-
-            if (!order) {
-                return res.status(404).json({ message: 'Pedido não encontrado.' });
-            }
-
-            await db.query('DELETE FROM items WHERE orderId = ?', [orderId]);
-            await db.query('DELETE FROM orders WHERE orderId = ?', [orderId]);
-
-            res.status(200).json({ message: 'Pedido deletado com sucesso.' });
-
-        } catch (error) {
-
-            console.error('Erro ao deletar o pedido:', error);
-            res.status(500).json({ message: 'Erro ao deletar o pedido.' });
-        }
-    };
+exports.deleteOrder = async (req, res) => {
+    try {
+        const ok = await orderService.deleteOrder(req.params.id);
+        if (!ok) return res.status(404).json({ message: "Pedido não encontrado." });
+        res.status(200).json({ message: "Pedido deletado com sucesso." });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
