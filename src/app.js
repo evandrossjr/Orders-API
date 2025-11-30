@@ -1,5 +1,7 @@
 const express = require('express'); 
 const app = express();
+const swaggerDocs = require('./config/swagger');
+
 
 
 //Permissão para JSON
@@ -18,7 +20,7 @@ app.get('/', (req, res) => {
     res.send('Estou funcionando!');
 });
 
-
-
+//Documentação com Swagger
+swaggerDocs(app);
 
 module.exports = app;
