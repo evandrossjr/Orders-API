@@ -13,10 +13,12 @@ const orderRoutes = require('./routes/order.routes');
 app.use('/order', orderRoutes);
 
 
-
+//Rota de teste
 app.get('/', (req, res) => {
     res.send('Estou funcionando!');
 });
+
+
 
 
 module.exports = app;

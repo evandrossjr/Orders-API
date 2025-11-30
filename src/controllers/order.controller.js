@@ -82,6 +82,7 @@ const db = require('../database/db');
 
 
    exports.getOrderById = async (req, res) => {
+    try {
          const orderId = req.params.id;
 
          const [[ order ]] = await db.query("SELECT * FROM orders WHERE orderId = ?", [orderId]);
@@ -93,11 +94,13 @@ const db = require('../database/db');
          const [ items ] = await db.query("SELECT * FROM items WHERE orderId = ?", [orderId]);
 
          res.status(200).json({ ...order, items });
-     };
+
+        } catch (error) {
+            console.error('Erro ao buscar o pedido:', error);
+            res.status(500).json({ message: 'Erro ao buscar o pedido.' });
+        }
+    };
     
-
-
-
 
 
 
@@ -171,7 +174,7 @@ const db = require('../database/db');
             res.status(200).json({ message: 'Pedido deletado com sucesso.' });
 
         } catch (error) {
-            
+
             console.error('Erro ao deletar o pedido:', error);
             res.status(500).json({ message: 'Erro ao deletar o pedido.' });
         }
