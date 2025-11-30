@@ -102,15 +102,62 @@ const db = require('../database/db');
 
 
 
-//
-//    updateOrder: (req, res) => {
-//        const orderId = req.params.id;
-//        // Atualizar um pedido pelo número
-//        res.status(200).send(`Pedido com ID: ${orderId} atualizado`);
-//    },
+    exports.updateOrder = async (req, res) => {
+        try{
+            const orderId = req.params.orderId;
+            const { valorTotal, dataCriacao, items } = req.body;
+
+
+            if(!Array.isArray(items) || items.length === 0) {
+                return res.status(400).json({ message: 'O pedido deve conter pelo menos um item.' });
+            }
+                        
+            const [ rows ] = await db.query('SELECT * FROM orders WHERE orderId = ?', [orderId]);
+
+            
+            if (rows.length === 0) {
+                return res.status(404).json({ message: 'Pedido não encontrado.' });
+            }
+
+            const updatedOrder = {
+                value: valorTotal,
+                creationDate: new Date(dataCriacao).toISOString().slice(0, 19).replace('T', ' '),
+            };
+
+            await db.query(
+                'UPDATE orders SET value = ?, creationDate = ? WHERE orderId = ?',
+                [updatedOrder.value, updatedOrder.creationDate, orderId]
+            );
+
+            await db.query('DELETE FROM items WHERE orderId = ?', [orderId]);
+
+            for (const item of items) {
+                const transformedItem = {
+                    orderId: orderId,
+                    productId: Number(item.idItem),
+                    quantity: item.quantidadeItem,
+                    price: item.valorItem
+                };
+
+                await db.query(
+                    'INSERT INTO items (orderId, productId, quantity, price) VALUES (?, ?, ?, ?)',
+                    [orderId, transformedItem.productId, transformedItem.quantity, transformedItem.price]
+                );
+            }
+            
+
+            return res.status(200).json({ message: 'Pedido atualizado com sucesso.', order: updatedOrder });
+        }
+        catch (error) {
+            console.error('Erro ao atualizar o pedido:', error);
+            res.status(500).json({ message: 'Erro ao atualizar o pedido.' });
+        }
+    };
+
+
 //
 //    deleteOrder: (req, res) => {
 //        const orderId = req.params.id;
 //        // Deletar um pedido pelo número
 //        res.status(200).send(`Pedido com ID: ${orderId} deletado`);
-//    }
+//    
