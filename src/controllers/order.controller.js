@@ -81,12 +81,27 @@ const db = require('../database/db');
     };
 
 
-//        
-//    getOrderById: (req, res) => {
-//        const orderId = req.params.id;  
-//        // Obter um pedido pelo número
-//        res.status(200).send(`Detalhes do pedido com ID: ${orderId}`);
-//    },
+   exports.getOrderById = async (req, res) => {
+         const orderId = req.params.id;
+
+         const [[ order ]] = await db.query("SELECT * FROM orders WHERE orderId = ?", [orderId]);
+
+         if (!order) {
+             return res.status(404).json({ message: 'Pedido não encontrado.' });
+         }
+
+         const [ items ] = await db.query("SELECT * FROM items WHERE orderId = ?", [orderId]);
+
+         res.status(200).json({ ...order, items });
+     };
+    
+
+
+
+
+
+
+
 //
 //    updateOrder: (req, res) => {
 //        const orderId = req.params.id;
