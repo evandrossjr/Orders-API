@@ -29,8 +29,8 @@ const db = require('../database/db');
                 };
 
                 await db.query(
-                    'INSERT INTO items (productId, quantity, price) VALUES (?, ?, ?)',
-                    [transformedItem.productId, transformedItem.quantity, transformedItem.price]
+                    'INSERT INTO items (orderId, productId, quantity, price) VALUES (?, ?, ?, ?)',
+                    [orderMapped.orderId, transformedItem.productId, transformedItem.quantity, transformedItem.price]
                 );
 
             }
@@ -46,10 +46,41 @@ const db = require('../database/db');
 
 
 
-//    //===================
-//    getAllOrders: (req, res) => {
-//        // Obter todos os pedidos
-//        res.status(200).send('Lista de todos os pedidos');
+    exports.getAllOrders = async (req, res) => {
+        try {
+            const [orders] = await db.query('SELECT o.orderId, o.value, o.creationDate, i.productId, i.quantity, i.price FROM orders o LEFT JOIN items i ON o.orderId = i.orderId');
+
+            const ordersMap = {};
+
+            orders.forEach(r => {
+                if(!ordersMap[r.orderId]){
+                    ordersMap[r.orderId] = {
+                        orderId: r.orderId,
+                        value: r.value,
+                        creationDate: r.creationDate,
+                        items: []
+                    };
+                }
+
+                if (r.productId != null){
+                    ordersMap[r.orderId].items.push({
+                        productId: r.productId,
+                        quantity: r.quantity,
+                        price: r.price
+                    });
+                }
+            });
+
+            res.json(Object.values(ordersMap));
+
+        }catch (err){
+            console.error(err);
+            res.status(500).json({ error: "Erro ao listar os pedidos"});
+        }
+
+    };
+
+
 //        
 //    getOrderById: (req, res) => {
 //        const orderId = req.params.id;  
