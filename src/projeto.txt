@@ -1,0 +1,752 @@
+﻿======== FILE: C:\orders-api\src\app.js ========
+const express = require('express'); 
+const app = express();
+const swaggerDocs = require('./config/swagger');
+
+
+
+//PermissÃ£o para JSON
+app.use(express.json());
+
+
+//Importando as rotas
+const orderRoutes = require('./routes/order.routes');
+const authRoutes = require('./routes/auth.routes');
+
+//Usando as rotas
+app.use('/order', orderRoutes);
+app.use('/auth', authRoutes);
+
+//Rota de teste
+app.get('/', (req, res) => {
+    res.send('Estou funcionando!');
+});
+
+//DocumentaÃ§Ã£o com Swagger
+swaggerDocs(app);
+
+module.exports = app;
+
+
+======== FILE: C:\orders-api\src\projeto.txt ========
+======== FILE: C:\orders-api\src\app.js ========
+const express = require('express'); 
+const app = express();
+const swaggerDocs = require('./config/swagger');
+
+
+
+//PermissÃ£o para JSON
+app.use(express.json());
+
+
+//Importando as rotas
+const orderRoutes = require('./routes/order.routes');
+const authRoutes = require('./routes/auth.routes');
+
+//Usando as rotas
+app.use('/order', orderRoutes);
+app.use('/auth', authRoutes);
+
+//Rota de teste
+app.get('/', (req, res) => {
+    res.send('Estou funcionando!');
+});
+
+//DocumentaÃ§Ã£o com Swagger
+swaggerDocs(app);
+
+module.exports = app;
+
+
+
+
+
+======== FILE: C:\orders-api\src\config\swagger.js ========
+const swaggerJSDoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+const path = require('path');
+
+
+const options = {
+    definition: {
+        openapi: '3.0.0',
+        info: {
+            title: 'Orders API',
+            version: '1.0.0',
+            description: "DocumentaÃ§Ã£o da API de pedidos com Swagger",
+        },
+    
+        servers: [{ url: 'http://localhost:3000',
+        description: 'Servidor Local' }],           
+    },
+    apis: [
+        path.join(__dirname, "..", "routes", "*.js"),
+    ],
+};
+
+const swaggerSpec = swaggerJSDoc(options);
+
+function swaggerDocs(app) {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
+
+module.exports = swaggerDocs;
+
+
+======== FILE: C:\orders-api\src\controllers\auth.controller.js ========
+const authService = require("../services/auth.service");
+const { validationResult } = require("express-validator");
+
+
+exports.register = async (req, res) => {
+
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+        return res.status(400).json({
+            errors: errors.array()
+        });
+    }
+
+    try {
+        const { email, password } = req.body;
+
+        const result = await authService.register(email, password);
+
+        return res.status(201).json({
+            message: "UsuÃ¡rio registrado com sucesso",
+            usuario: result
+        });
+
+    } catch (error) {
+        return res.status(400).json({ message: error.message });
+    }
+};
+
+exports.login = async (req, res) => {
+
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+        return res.status(400).json({
+            errors: errors.array()
+        });
+    }
+    
+    try {
+        const { email, password } = req.body;
+
+        const result = await authService.login(email, password);
+
+        return res.status(200).json({
+            message: "Login realizado com sucesso",
+            token: result.token
+        });
+
+    } catch (error) {
+        return res.status(400).json({ message: error.message });
+    }
+};
+
+
+
+======== FILE: C:\orders-api\src\controllers\order.controller.js ========
+const orderService = require('../services/order.service');
+
+exports.createOrder = async (req, res) => {
+    try {
+        const data = await orderService.createOrder(req.body);
+        res.status(201).json({ message: "Pedido criado com sucesso.", data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getAllOrders = async (req, res) => {
+    try {
+        const data = await orderService.getAllOrders();
+        res.status(200).json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getOrderById = async (req, res) => {
+    try {
+        const data = await orderService.getOrderById(req.params.id);
+        if (!data) return res.status(404).json({ message: "Pedido nÃ£o encontrado." });
+        res.status(200).json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.updateOrder = async (req, res) => {
+    try {
+        const data = await orderService.updateOrder(req.params.orderId, req.body);
+        if (!data) return res.status(404).json({ message: "Pedido nÃ£o encontrado." });
+        res.status(200).json({ message: "Pedido atualizado com sucesso.", data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.deleteOrder = async (req, res) => {
+    try {
+        const ok = await orderService.deleteOrder(req.params.id);
+        if (!ok) return res.status(404).json({ message: "Pedido nÃ£o encontrado." });
+        res.status(200).json({ message: "Pedido deletado com sucesso." });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
+
+======== FILE: C:\orders-api\src\database\db.js ========
+require('dotenv').config();
+
+const mysql = require('mysql2/promise');
+
+const connection = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
+});
+
+module.exports = connection;
+
+
+======== FILE: C:\orders-api\src\middlewares\auth.middleware.js ========
+const jwt = require("jsonwebtoken");
+
+module.exports = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ message: "Token nÃ£o informado" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: "Token invÃ¡lido" });
+    }
+};
+
+
+
+======== FILE: C:\orders-api\src\models\User.js ========
+const { DataTypes } = require("sequelize");
+const sequelize = require("../database/db");
+
+const User = sequelize.define("User", {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+    email: {
+        type: DataTypes.STRING,
+        unique: true,
+        allowNull: false
+    },
+    password: {
+        type: DataTypes.STRING,
+        allowNull: false
+    }
+}, {
+    tableName: "users"
+});
+
+module.exports = User;
+
+
+
+======== FILE: C:\orders-api\src\routes\auth.routes.js ========
+const express = require("express");
+const router = express.Router();
+const authController = require("../controllers/auth.controller");
+
+const {
+  registerValidator,
+  loginValidator
+} = require("../validators/auth.validator");
+
+
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: Endpoints de autenticaÃ§Ã£o
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     RegisterRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           example: usuario@email.com
+ *           description: Deve ser um email vÃ¡lido
+ *         password:
+ *           type: string
+ *           example: "123456"
+ *           minLength: 6
+ *           description: Deve ter no mÃ­nimo 6 caracteres
+ *     LoginRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           example: usuario@email.com
+ *         password:
+ *           type: string
+ *           example: "123456"
+ */
+
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Registrar novo usuÃ¡rio
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RegisterRequest'
+ *     responses:
+ *       201:
+ *         description: UsuÃ¡rio registrado com sucesso
+ *       400:
+ *         description: Erro de validaÃ§Ã£o
+ *       409:
+ *         description: UsuÃ¡rio jÃ¡ existe
+ */
+router.post("/register", registerValidator, authController.register);
+
+
+
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Login do usuÃ¡rio e retorno do token JWT
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: Login realizado com sucesso
+ *       400:
+ *         description: Erro de validaÃ§Ã£o
+ *       401:
+ *         description: Credenciais invÃ¡lidas
+ */
+router.post("/login", loginValidator, authController.login);
+
+module.exports = router;
+
+
+======== FILE: C:\orders-api\src\routes\order.routes.js ========
+const express = require('express');
+const router = express.Router();
+
+const orderController = require('../controllers/order.controller');
+const authMiddleware = require("../middlewares/auth.middleware");
+
+/**
+ * @swagger
+ * tags:
+ *   name: Orders
+ *   description: Gerenciamento de pedidos
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Item:
+ *       type: object
+ *       required:
+ *         - idItem
+ *         - quantidadeItem
+ *         - valorItem
+ *       properties:
+ *         idItem:
+ *           type: string
+ *         quantidadeItem:
+ *           type: number
+ *         valorItem:
+ *           type: number
+ *       example:
+ *         idItem: "2525"
+ *         quantidadeItem: 10
+ *         valorItem: 1000
+ *
+ *     Order:
+ *       type: object
+ *       required:
+ *         - numeroPedido
+ *         - valorTotal
+ *         - dataCriacao
+ *         - items
+ *       properties:
+ *         numeroPedido:
+ *           type: string
+ *         valorTotal:
+ *           type: number
+ *         dataCriacao:
+ *           type: string
+ *         items:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Item'
+ *       example:
+ *         numeroPedido: "v10089015vdb-05"
+ *         valorTotal: 35600
+ *         dataCriacao: "2023-07-19T12:24:11.529Z"
+ *         items:
+ *           - idItem: "2525"
+ *             quantidadeItem: 10
+ *             valorItem: 1000
+ *           - idItem: "2837"
+ *             quantidadeItem: 10
+ *             valorItem: 2500
+ */
+
+/**
+ * @swagger
+ * /orders:
+ *   post:
+ *     summary: Cria um novo pedido
+ *     tags: [Orders]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Order'
+ *     responses:
+ *       201:
+ *         description: Pedido criado com sucesso
+ */
+router.post('/', authMiddleware, orderController.createOrder);
+
+/**
+ * @swagger
+ * /orders:
+ *   get:
+ *     summary: Retorna todos os pedidos
+ *     tags: [Orders]
+ *     responses:
+ *       200:
+ *         description: Lista de pedidos
+ */
+router.get('/list', authMiddleware, orderController.getAllOrders);
+
+/**
+ * @swagger
+ * /orders/{id}:
+ *   get:
+ *     summary: ObtÃ©m um pedido pelo ID
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Pedido encontrado
+ *       404:
+ *         description: Pedido nÃ£o encontrado
+ */
+router.get('/:id', authMiddleware, orderController.getOrderById);
+
+/**
+ * @swagger
+ * /orders/{orderId}:
+ *   put:
+ *     summary: Atualiza um pedido pelo ID
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Order'
+ *     responses:
+ *       200:
+ *         description: Pedido atualizado com sucesso
+ *       404:
+ *         description: Pedido nÃ£o encontrado
+ */
+router.put('/:orderId', authMiddleware, orderController.updateOrder);
+
+/**
+ * @swagger
+ * /orders/{id}:
+ *   delete:
+ *     summary: Deleta um pedido pelo ID
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Pedido deletado com sucesso
+ *       404:
+ *         description: Pedido nÃ£o encontrado
+ */
+router.delete('/:id', authMiddleware, orderController.deleteOrder);
+
+module.exports = router;
+
+
+======== FILE: C:\orders-api\src\services\auth.service.js ========
+const db = require("../database/db");
+const bcrypt = require("bcrypt");
+const e = require("express");
+const jwt = require("jsonwebtoken");
+
+exports.register = async (email, password) => {
+
+    const [[userExists]] = await db.query(
+        "SELECT * FROM users WHERE email = ?",
+        [email]
+    );
+
+    console.error(userExists);
+
+    if (userExists) {
+        throw new Error("UsuÃ¡rio jÃ¡ existe");
+    }
+
+    console.error(email, password);
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await db.query(
+        "INSERT INTO users (email, password) VALUES (?, ?)",
+        [email, passwordHash]
+    );
+
+    return { email };
+};
+
+exports.login = async (email, password) => {
+
+    const [[user]] = await db.query(
+        "SELECT * FROM users WHERE email = ?",
+        [email]
+    );
+
+    if (!user) {
+        throw new Error("UsuÃ¡rio nÃ£o encontrado");
+    }
+
+    const passwordValida = await bcrypt.compare(password, user.password);
+    if (!passwordValida) {
+        throw new Error("Senha invÃ¡lida");
+    }
+
+    const token = jwt.sign(
+        { id: user.id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES }
+    );
+
+    return { token };
+};
+
+
+
+======== FILE: C:\orders-api\src\services\order.service.js ========
+const db = require('../database/db');
+
+
+ class OrderService {
+    
+     async createOrder(data) {
+        const { numeroPedido, valorTotal, dataCriacao, items } = data;
+
+        const orderMapped = {
+            orderId: numeroPedido,
+            value: valorTotal,
+            creationDates: new Date(dataCriacao).toISOString().slice(0, 19).replace('T', ' '),
+        };
+
+        await db.query(
+            'INSERT INTO orders (orderId, value, creationDate) VALUES (?, ?, ?)',
+            [orderMapped.orderId, orderMapped.value, orderMapped.creationDates]
+        );
+
+        for (const item of items) {
+            await db.query(
+                'INSERT INTO items (orderId, productId, quantity, price) VALUES (?, ?, ?, ?)',
+                [orderMapped.orderId, Number(item.idItem), item.quantidadeItem, item.valorItem]
+            );
+        }
+
+        return orderMapped;
+    }
+
+
+    async getAllOrders() {
+        const [orders] = await db.query(`
+            SELECT o.orderId, o.value, o.creationDate, 
+                   i.productId, i.quantity, i.price 
+            FROM orders o 
+            LEFT JOIN items i ON o.orderId = i.orderId
+        `);
+
+        const ordersMap = {};
+
+        orders.forEach(r => {
+            if (!ordersMap[r.orderId]) {
+                ordersMap[r.orderId] = {
+                    orderId: r.orderId,
+                    value: r.value,
+                    creationDate: r.creationDate,
+                    items: []
+                };
+            }
+
+            if (r.productId != null) {
+                ordersMap[r.orderId].items.push({
+                    productId: r.productId,
+                    quantity: r.quantity,
+                    price: r.price
+                });
+            }
+        });
+
+        return Object.values(ordersMap);
+    }
+
+
+    async getOrderById(orderId) {
+        const [[order]] = await db.query(
+            "SELECT * FROM orders WHERE orderId = ?", 
+            [orderId]
+        );
+
+        if (!order) return null;
+
+        const [items] = await db.query(
+            "SELECT * FROM items WHERE orderId = ?", 
+            [orderId]
+        );
+
+        return { ...order, items };
+    }
+
+
+    async updateOrder(orderId, data) {
+        const { valorTotal, dataCriacao, items } = data;
+
+        const [rows] = await db.query(
+            'SELECT * FROM orders WHERE orderId = ?', 
+            [orderId]
+        );
+
+        if (rows.length === 0) return null;
+
+        const updatedOrder = {
+            value: valorTotal,
+            creationDate: new Date(dataCriacao).toISOString().slice(0, 19).replace('T', ' '),
+        };
+
+        await db.query(
+            'UPDATE orders SET value = ?, creationDate = ? WHERE orderId = ?',
+            [updatedOrder.value, updatedOrder.creationDate, orderId]
+        );
+
+        await db.query('DELETE FROM items WHERE orderId = ?', [orderId]);
+
+        for (const item of items) {
+            await db.query(
+                'INSERT INTO items (orderId, productId, quantity, price) VALUES (?, ?, ?, ?)',
+                [orderId, Number(item.idItem), item.quantidadeItem, item.valorItem]
+            );
+        }
+
+        return updatedOrder;
+    }
+
+
+    async deleteOrder(orderId) {
+        const [[order]] = await db.query(
+            'SELECT * FROM orders WHERE orderId = ?', 
+            [orderId]
+        );
+
+        if (!order) return null;
+
+        await db.query('DELETE FROM items WHERE orderId = ?', [orderId]);
+        await db.query('DELETE FROM orders WHERE orderId = ?', [orderId]);
+
+        return true;
+    }
+}
+
+module.exports = new OrderService();
+
+
+======== FILE: C:\orders-api\src\validators\auth.validator.js ========
+const { body } = require("express-validator");
+
+exports.registerValidator = [
+  body("email")
+    .notEmpty().withMessage("Email Ã© obrigatÃ³rio")
+    .isEmail().withMessage("Email invÃ¡lido"),
+
+  body("password")
+    .notEmpty().withMessage("Senha Ã© obrigatÃ³ria")
+    .isLength({ min: 6 }).withMessage("A senha deve ter no mÃ­nimo 6 caracteres"),
+];
+
+exports.loginValidator = [
+  body("email")
+    .notEmpty().withMessage("Email Ã© obrigatÃ³rio")
+    .isEmail().withMessage("Email invÃ¡lido"),
+
+  body("password")
+    .notEmpty().withMessage("Senha Ã© obrigatÃ³ria"),
+];
+
+
+

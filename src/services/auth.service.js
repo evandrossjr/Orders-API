@@ -10,13 +10,9 @@ exports.register = async (email, password) => {
         [email]
     );
 
-    console.error(userExists);
-
     if (userExists) {
         throw new Error("Usuário já existe");
     }
-
-    console.error(email, password);
 
     const passwordHash = await bcrypt.hash(password, 10);
 
