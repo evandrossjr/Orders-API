@@ -2,7 +2,7 @@
 
 Uma API REST completa para **gestão de pedidos**, com **autenticação
 JWT**, **validações**, **Swagger**, **MySQL** e arquitetura organizada
-em camadas.
+em camadas. O projeto também foi gerenciado com o Azure DevOps e em cada commit há o código da referida task.
 
 ------------------------------------------------------------------------
 
