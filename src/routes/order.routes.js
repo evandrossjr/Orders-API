@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const orderController = require('../controllers/order.controller');
+const authMiddleware = require("../middlewares/auth.middleware");
 
 /**
  * @swagger
@@ -63,11 +64,6 @@ const orderController = require('../controllers/order.controller');
  *             valorItem: 2500
  */
 
-
-
-
-
-
 /**
  * @swagger
  * /orders:
@@ -84,7 +80,7 @@ const orderController = require('../controllers/order.controller');
  *       201:
  *         description: Pedido criado com sucesso
  */
-router.post('/', orderController.createOrder);
+router.post('/', authMiddleware, orderController.createOrder);
 
 /**
  * @swagger
@@ -96,7 +92,7 @@ router.post('/', orderController.createOrder);
  *       200:
  *         description: Lista de pedidos
  */
-router.get('/list', orderController.getAllOrders);
+router.get('/list', authMiddleware, orderController.getAllOrders);
 
 /**
  * @swagger
@@ -116,7 +112,7 @@ router.get('/list', orderController.getAllOrders);
  *       404:
  *         description: Pedido não encontrado
  */
-router.get('/:id', orderController.getOrderById);
+router.get('/:id', authMiddleware, orderController.getOrderById);
 
 /**
  * @swagger
@@ -142,7 +138,7 @@ router.get('/:id', orderController.getOrderById);
  *       404:
  *         description: Pedido não encontrado
  */
-router.put('/:orderId', orderController.updateOrder);
+router.put('/:orderId', authMiddleware, orderController.updateOrder);
 
 /**
  * @swagger
@@ -162,6 +158,6 @@ router.put('/:orderId', orderController.updateOrder);
  *       404:
  *         description: Pedido não encontrado
  */
-router.delete('/:id', orderController.deleteOrder);
+router.delete('/:id', authMiddleware, orderController.deleteOrder);
 
 module.exports = router;
